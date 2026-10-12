@@ -1,103 +1,161 @@
-# Two-phone inference test (Android / Termux)
+# Termux distributed inference: 1 → 2 → 3 Android phones
 
-This is the first practical route to test distributed inference on the real phones while the Android app's native backend is still being integrated. It uses the upstream prima.cpp engine from Termux; it does **not** claim that the PhoneMesh APK itself can launch inference yet.
+This guide is the terminal-first path for testing real inference. The PhoneMesh Android APK is **not** required to launch the engine; it currently only helps test Wi-Fi Direct transport. The inference engine used here is upstream [prima.cpp](https://github.com/OpenCPIL/prima.cpp). Android/Termux compilation and the user's exact model are not yet verified, so follow the gates in order and save errors instead of guessing flags.
 
-## Important limits
+## Hard safety gates
 
-- Target devices: GT Neo6 (rank 0 / coordinator) and X50 5G (rank 1 / worker).
-- Keep each phone's measured process/runtime peak at or below 4 GiB. Stop immediately if Android reports memory pressure, the process is killed, or the phone becomes abnormally hot.
-- Start with a short prompt, context 512, and at most 32 generated tokens. Only increase after checking memory and temperature.
-- Upstream prima.cpp's documented multi-device command supplies a model path on each device. For this first integration test, put the **same exact GGUF file on both phones** (copy locally from the phone that already has it; no second internet download is needed). This is a temporary compatibility baseline, not the final per-node-only-shard design.
-- Model file size is not the same as runtime RAM. prima.cpp uses memory mapping/lazy loading, but that does not prove the Android process will stay under 4 GiB. Measure it on each actual phone.
-- Use only your own two phones on the private Wi-Fi Direct group. prima.cpp's distributed RPC/network path is experimental; do not expose it to public Wi-Fi or the internet.
+- Keep the measured runtime/process peak on **each phone at or below 4 GiB**. Stop immediately if the process is killed, Android reports memory pressure, or the phone becomes abnormally hot.
+- Start with context 256–512 and 8–32 generated tokens. Test while cool, charging only if the phone stays cool, and keep screens awake.
+- Use only a trusted private local link and devices you have permission to use. Do not expose the engine's experimental network ports to public Wi-Fi or the internet.
+- Model size on disk is not runtime RAM. Memory mapping is not proof that this device/model combination fits.
+- First verify the model with a **single-phone smoke test**. If the engine says the GGUF architecture or quantization is unsupported, stop: distributed flags cannot fix model incompatibility.
 
-## 1. Prepare both phones
+## 0. Record the exact model file
 
-Install Termux from its official source. Open Termux on each phone and run:
+On the phone that already has the model, open Termux:
+
+```sh
+termux-setup-storage
+ls -lh ~/storage/downloads/
+mkdir -p ~/models
+```
+
+Copy the exact filename, not a wildcard that might match multiple files. Example only:
+
+```sh
+cp "$HOME/storage/downloads/EXACT_MODEL_FILENAME.gguf" "$HOME/models/model.gguf"
+sha256sum "$HOME/models/model.gguf"
+```
+
+Use a local transfer (USB, Nearby Share, or PhoneMesh once its large-file transfer is implemented) to copy it to the other test phone(s), not another internet download. Compare `sha256sum` on every phone; all hashes must match. The upstream multi-node example expects the model path to exist on each node, so this is a temporary baseline, not the final per-node-only-shards design.
+
+## 1. Install dependencies on each phone
+
+Install Termux from its official distribution. Run on each phone:
 
 ```sh
 pkg update
 pkg upgrade
 pkg install git clang make cmake pkg-config libzmq fio wget curl
-termux-setup-storage
 ```
 
-Ensure the same model file is present on both phones. For example, if it is in Downloads:
+If `pkg` cannot find one package, save the exact error and check the current Termux package name; do not randomly substitute libraries.
+
+## 2. Build prima.cpp
+
+Do not compile while a phone is hot or low on battery. The rank-0 scheduler requires HiGHS according to upstream documentation; install it from source in Termux's prefix on the **coordinator phone only**:
 
 ```sh
-ls -lh ~/storage/downloads/
-mkdir -p ~/models
-cp ~/storage/downloads/Ornith-1.5-9B*.gguf ~/models/model.gguf
+cd ~
+git clone https://github.com/ERGO-Code/HiGHS.git
+cd ~/HiGHS
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX"
+cmake --build build -j2
+cmake --install build
 ```
 
-Adjust the source filename to the exact file you have. If the wildcard matches multiple files, do not use this command unchanged; choose the exact file. Check the two copies match by comparing `sha256sum ~/models/model.gguf` on both phones.
-
-## 2. Build prima.cpp on each phone
-
-This is a native build and may take a while. Do not run a long compile if a phone is already hot or low on battery. Keep the build parallelism low. Run on both phones:
+Then build prima.cpp on all phones. On the GT Neo6 coordinator, enable HiGHS; on worker phones, use the normal build:
 
 ```sh
 cd ~
 git clone https://github.com/OpenCPIL/prima.cpp.git
 cd ~/prima.cpp
+```
+
+GT Neo6 (rank 0):
+```sh
+make USE_HIGHS=1 -j2
+```
+
+Each worker:
+```sh
 make -j2
 ```
 
-If dependency detection or compilation fails, stop and save the complete error output; don't keep changing random compiler flags. The project has evolving dependencies, so successful upstream Linux builds do not guarantee a successful Termux build on every Android version.
-
-Verify the executable and help output:
-
+If a build fails, stop and keep the complete terminal output. Upstream Linux success does not guarantee Android/Termux success. Verify:
 ```sh
 cd ~/prima.cpp
 ls -l ./llama-cli
 ./llama-cli --help
 ```
 
-## 3. Connect the phones
+## 3. Single-phone model compatibility smoke test
 
-1. Open PhoneMesh-AI on both phones, enable Wi-Fi, scan and connect the phones using Wi-Fi Direct.
-2. Record the actual Wi-Fi Direct IP address of each phone. The group-owner address is not automatically the coordinator address unless GT Neo6 is the group owner. On Termux, inspect `ip addr` and identify the Wi-Fi Direct interface/address; use addresses that can reach each other over this link.
-3. Keep the phones on this private group. Do not open prima.cpp ports to other networks.
-4. If Android battery restrictions suspend Termux, allow Termux to run while testing and keep both screens awake.
-
-## 4. Start the worker first (X50, rank 1)
-
-Replace `COORDINATOR_IP` with the GT Neo6's reachable Wi-Fi Direct IP. Run:
+Before networking, run this on the GT Neo6. Use the exact model file and begin with a short run:
 
 ```sh
 cd ~/prima.cpp
-./llama-cli -m ~/models/model.gguf \
-  --world 2 --rank 1 --master COORDINATOR_IP --next COORDINATOR_IP --prefetch
+./llama-cli -m ~/models/model.gguf -c 256 -n 8 -p "Reply with one short sentence: what is Wi-Fi?"
 ```
 
-Leave it running in this terminal.
+Only proceed if it loads and generates text, and measured peak memory stays at or below 4 GiB. If the model fails to load, save the full error and stop. Do not assume Ornith-1.5-9B is compatible just because the filename ends in `.gguf`.
 
-## 5. Start inference on the GT Neo6 (rank 0)
+## 4. Connect two phones and identify IPs
 
-Replace `COORDINATOR_IP` with the GT Neo6's reachable Wi-Fi Direct IP and `WORKER_IP` with the X50's reachable Wi-Fi Direct IP. The `--master` address must identify rank 0 (GT Neo6), not blindly the group owner.
+1. Connect GT Neo6 and X50 using a private Wi-Fi Direct group (or a trusted local Wi-Fi network). PhoneMesh can help with Wi-Fi Direct discovery, but its benchmark success alone does not prove prima.cpp ports work.
+2. On each phone, inspect `ip addr` and identify the address that can reach the other phone over this link. Write down the actual IPs:
+   - `GT_IP`: GT Neo6, rank 0
+   - `X50_IP`: X50, rank 1
+3. Verify basic reachability if an appropriate ping tool is available. Do not assume the group-owner IP is always the coordinator IP.
+4. Keep the phones awake and allow Termux to run without battery optimization during the test.
+
+## 5. Two-phone inference
+
+All nodes need the same exact model path for this upstream baseline. Start the worker first on X50 (replace `GT_IP` with the actual GT Neo6 address):
 
 ```sh
 cd ~/prima.cpp
-./llama-cli -m ~/models/model.gguf \
-  -c 512 -n 32 -p "Explain in one short paragraph how Wi-Fi Direct connects two phones." \
-  --world 2 --rank 0 --master COORDINATOR_IP --next WORKER_IP --prefetch
+./llama-cli -m ~/models/model.gguf --world 2 --rank 1 --master GT_IP --next GT_IP --prefetch
 ```
 
-Use the X50's reachable Wi-Fi Direct address for `WORKER_IP`. The worker's `--next` address points back to `COORDINATOR_IP`. The rank-0 node initiates the request; rank 1 must already be running.
+Leave it running. Then start the request on GT Neo6 (replace `GT_IP` and `X50_IP` with actual addresses):
 
-If the worker fails to join, save both terminal outputs and the app's connection status. Do not assume a successful TCP benchmark means the distributed inference ports are reachable.
+```sh
+cd ~/prima.cpp
+./llama-cli -m ~/models/model.gguf -c 256 -n 16 \
+  -p "Explain briefly how two phones can cooperate on a computation." \
+  --world 2 --rank 0 --master GT_IP --next X50_IP --prefetch
+```
 
-## 6. Measure, don't guess
+Success means rank 0 prints a model response and rank 1 joins without an error. A TCP benchmark or a successful connection in PhoneMesh alone is not distributed inference.
 
-Record on each phone before and after the run:
-- model file SHA-256 and size;
-- process peak RSS (if available via `/proc/<pid>/status` or Android process tools);
-- available memory, thermal status, generation time, and tokens/s;
-- whether both ranks remained active or the engine removed one node;
-- exact command and full output.
+## 6. Three-phone inference
 
-Reject a run if either node exceeds the 4 GiB runtime ceiling. The first successful run proves only that the selected model and two-node setup can execute; it does not prove it is faster than single-phone inference.
+Only attempt this after the two-phone test succeeds. Add a third phone that can compile and run the same engine, and record its reachable IP as `PHONE3_IP`. The ring order is rank 0 → rank 1 → rank 2 → rank 0. Every node uses the GT Neo6 address as `--master`.
 
-## What this does not solve yet
+Start rank 2 on phone 3 first:
+```sh
+cd ~/prima.cpp
+./llama-cli -m ~/models/model.gguf --world 3 --rank 2 --master GT_IP --next GT_IP --prefetch
+```
 
-The current APK still contains Wi-Fi Direct discovery and a bounded-memory TCP transfer benchmark, not a bundled native inference engine. This document is a temporary Termux route to validate the distributed runtime. The final PhoneMesh integration still needs a pinned, reproducible Android engine build, secure node authentication, robust model/shard transfer, and tests confirming the actual per-node memory peaks. Do not split a GGUF file at arbitrary byte offsets.
+Start rank 1 on X50:
+```sh
+cd ~/prima.cpp
+./llama-cli -m ~/models/model.gguf --world 3 --rank 1 --master GT_IP --next PHONE3_IP --prefetch
+```
+
+Start rank 0 on GT Neo6:
+```sh
+cd ~/prima.cpp
+./llama-cli -m ~/models/model.gguf -c 256 -n 16 \
+  -p "Explain briefly how three phones can cooperate on a computation." \
+  --world 3 --rank 0 --master GT_IP --next X50_IP --prefetch
+```
+
+The third phone's `--next` points back to GT Neo6; rank 1's `--next` points to phone 3. Replace every placeholder with a real IP, without angle brackets. If the engine rejects the topology or drops a rank, save all three terminal outputs; do not call it a successful three-node test.
+
+## 7. Measure and report
+
+For each run, record:
+- device and rank, Android/Termux version, engine Git commit (`git -C ~/prima.cpp rev-parse HEAD`);
+- exact model filename, byte size, and `sha256sum`;
+- exact command, full output/error, whether every rank stayed connected;
+- wall-clock generation time and generated token count/tokens per second;
+- process RSS/peak if available, system available memory, and thermal/battery behavior.
+
+Reject any run that exceeds 4 GiB runtime memory on any phone. Compare one-phone, two-phone, and three-phone latency under the same model, prompt, context, and token count. More phones are not automatically faster; network overhead or a weak node can slow the whole ring.
+
+## Current project boundary
+
+This is a **terminal test procedure**, not a claim that the test has passed on the target devices. The APK still does not bundle or launch prima.cpp. The first goal is a reproducible successful one-phone model load, then two-node inference, then three-node inference. Final PhoneMesh work still needs an integrated engine, authenticated peers, resumable chunked local model/shard transfer, and measured proof of the 4 GiB per-node limit. Never split a GGUF file at arbitrary byte offsets.
