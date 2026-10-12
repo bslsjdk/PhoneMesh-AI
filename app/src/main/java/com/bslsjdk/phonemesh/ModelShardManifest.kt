@@ -39,7 +39,7 @@ data class ModelShardManifest(
         var nextLayer = 0
         for (shard in ordered) {
             if (shard.shardId.isBlank()) errors += "Shard ID must not be blank"
-            if (shard.fileName.isBlank() || shard.fileName.contains("/") || shard.fileName.contains('\\\\') ||
+            if (shard.fileName.isBlank() || shard.fileName.contains("/") || shard.fileName.indexOf(92.toChar()) >= 0 ||
                 shard.fileName == "." || shard.fileName == "..") {
                 errors += "Shard ${shard.shardId}: fileName must be a plain file name"
             }
