@@ -6,15 +6,16 @@ This guide is the terminal-first path for testing real inference. The PhoneMesh 
 
 ## Low-bandwidth plan (200 KB/s internet)
 
-The internet link is the scarce resource; local phone-to-phone Wi-Fi is a separate link. Do **not** repeat source downloads on every phone.
+Your bottleneck is downloading and installing the **platform/toolchain**, not the already-downloaded model. The PhoneMesh-AI repository and its launcher are small; the larger uncertain cost is the upstream inference engine source, compiler/build tools, and required libraries. The APK is not needed for a terminal-only test.
 
-- Install Termux once on each device. Avoid running `pkg upgrade` unless a package actually requires it; it can pull many unrelated updates. Install only the packages the build reports missing.
-- Clone source on **one phone only**, using shallow clones to avoid downloading full Git history.
-- Transfer the source tree or built files to other phones over a local link. All phones still need compatible runtime libraries, and a binary built on one phone is not guaranteed to run on another until tested.
-- Download the model once. Copy it locally to each node for the upstream prima.cpp baseline; compare SHA-256. Do not re-download it from the internet.
-- Do not download a second model just for a smoke test. First test the existing model with a short prompt; if it is unsupported or exceeds the memory ceiling, stop before downloading anything else.
+- Install Termux once on each device. Avoid `pkg upgrade`: it may download many unrelated updates. Install only required packages, and review the package manager's proposed download size before confirming.
+- Do not clone PhoneMesh-AI separately on every phone. For a terminal smoke test, you can download only the small launcher file; for cluster testing, get the repository once and copy it locally to the other phones.
+- Clone `prima.cpp` and its scheduler dependency only on the coordinator first. Use shallow clones. Check download sizes/progress and stop before accepting unexpectedly large downloads.
+- Build and test on the GT Neo6 before preparing the other phones. Reuse source and, if ABI/library checks pass, binaries over a local Wi-Fi link. Do not assume copied binaries work without testing `./llama-cli --help` and checking missing shared libraries.
+- Some runtime packages still need to be installed on each phone. Install only the libraries the tested binary actually requires; don't install a full compiler toolchain on worker phones if a copied executable runs without it.
+- The model is separate from the platform download budget. It is already available locally, so do not download it again from the internet. Copy it over a local link only if the upstream baseline requires a copy on each node.
 
-At 200 KB/s, 100 MB takes at least about 8 minutes 20 seconds and 1 GB takes at least about 1 hour 25 minutes, before overhead or interruptions. Exact source/dependency size varies, so check `du -sh` and download progress instead of trusting an estimate.
+At 200 KB/s, 100 MB takes at least about 8 minutes 20 seconds and 1 GB takes at least about 1 hour 25 minutes, before overhead or interruptions. Exact source/dependency size varies; inspect `du -sh` and package-manager download estimates instead of trusting a guess.
 
 
 - Keep the measured runtime/process peak on **each phone at or below 4 GiB**. Stop immediately if the process is killed, Android reports memory pressure, or the phone becomes abnormally hot.
