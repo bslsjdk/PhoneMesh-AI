@@ -11,12 +11,13 @@ class DynamicWorkloadPlannerTest {
         online: Boolean = true,
         peakBytes: Long? = 512L * MIB,
         thermal: ThermalStatus = ThermalStatus.COOL,
-        validated: Boolean = true
+        validated: Boolean = true,
+        availableRamBytes: Long = 2L * GIB
     ) = AdaptiveNodeProfile(
         nodeId = id,
         online = online,
         measuredRuntimePeakBytes = peakBytes,
-        availableRamBytes = 2L * GIB,
+        availableRamBytes = availableRamBytes,
         thermalStatus = thermal,
         measuredNetworkRttMillis = 1.0,
         measuredNetworkBytesPerSecond = 10_000_000.0,
@@ -70,6 +71,19 @@ class DynamicWorkloadPlannerTest {
         assertTrue(plan.warnings.any { it.contains("offline") })
         assertTrue(plan.warnings.any { it.contains("missing/invalid measured peak RSS") })
         assertTrue(plan.warnings.any { it.contains("thermal backoff") })
+    }
+
+
+    @Test
+    fun lowAvailableRamIsNotTreatedAsSafeJustBecausePeakRssWasPreviouslyLow() {
+        val plan = DynamicWorkloadPlanner.propose(
+            totalLayers = 2,
+            nodes = listOf(node("low-free-ram", availableRamBytes = 128L * MIB)),
+            activationBytesAtBoundary = 0
+        )
+
+        assertTrue(plan.assignments.isEmpty())
+        assertTrue(plan.warnings.any { it.contains("projected memory leaves no safe layer capacity") })
     }
 
     @Test
