@@ -56,34 +56,34 @@ ls -l ./llama-cli
 ## 3. Connect the phones
 
 1. Open PhoneMesh-AI on both phones, enable Wi-Fi, scan and connect the phones using Wi-Fi Direct.
-2. Record the group-owner IP shown in the app. The other phone needs to reach that IP through the Wi-Fi Direct interface.
+2. Record the actual Wi-Fi Direct IP address of each phone. The group-owner address is not automatically the coordinator address unless GT Neo6 is the group owner. On Termux, inspect `ip addr` and identify the Wi-Fi Direct interface/address; use addresses that can reach each other over this link.
 3. Keep the phones on this private group. Do not open prima.cpp ports to other networks.
 4. If Android battery restrictions suspend Termux, allow Termux to run while testing and keep both screens awake.
 
 ## 4. Start the worker first (X50, rank 1)
 
-Replace `OWNER_IP` with the group-owner IP displayed by PhoneMesh. Run:
+Replace `COORDINATOR_IP` with the GT Neo6's reachable Wi-Fi Direct IP. Run:
 
 ```sh
 cd ~/prima.cpp
 ./llama-cli -m ~/models/model.gguf \
-  --world 2 --rank 1 --master OWNER_IP --next OWNER_IP --prefetch
+  --world 2 --rank 1 --master COORDINATOR_IP --next COORDINATOR_IP --prefetch
 ```
 
 Leave it running in this terminal.
 
 ## 5. Start inference on the GT Neo6 (rank 0)
 
-Replace `OWNER_IP` with the same group-owner IP. If GT Neo6 is the group owner, use its Wi-Fi Direct group-owner IP; if Android assigns roles differently, use the actual owner IP in both commands and keep rank 0 on GT Neo6 for this first test.
+Replace `COORDINATOR_IP` with the GT Neo6's reachable Wi-Fi Direct IP and `WORKER_IP` with the X50's reachable Wi-Fi Direct IP. The `--master` address must identify rank 0 (GT Neo6), not blindly the group owner.
 
 ```sh
 cd ~/prima.cpp
 ./llama-cli -m ~/models/model.gguf \
   -c 512 -n 32 -p "Explain in one short paragraph how Wi-Fi Direct connects two phones." \
-  --world 2 --rank 0 --master OWNER_IP --next WORKER_IP --prefetch
+  --world 2 --rank 0 --master COORDINATOR_IP --next WORKER_IP --prefetch
 ```
 
-Replace `WORKER_IP` with the X50's reachable Wi-Fi Direct address. The worker's `--next` address should point back to the coordinator/owner IP. The rank-0 node initiates the request; rank 1 must already be running.
+Use the X50's reachable Wi-Fi Direct address for `WORKER_IP`. The worker's `--next` address points back to `COORDINATOR_IP`. The rank-0 node initiates the request; rank 1 must already be running.
 
 If the worker fails to join, save both terminal outputs and the app's connection status. Do not assume a successful TCP benchmark means the distributed inference ports are reachable.
 
