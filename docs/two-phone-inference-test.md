@@ -48,8 +48,7 @@ Install Termux from its official distribution. Run on each phone:
 
 ```sh
 pkg update
-pkg upgrade
-pkg install git clang make cmake pkg-config libzmq fio wget curl
+pkg install git clang make cmake pkg-config libzmq fio
 ```
 
 If `pkg` cannot find one package, save the exact error and check the current Termux package name; do not randomly substitute libraries.
@@ -60,7 +59,7 @@ Do not compile while a phone is hot or low on battery. The rank-0 scheduler requ
 
 ```sh
 cd ~
-git clone https://github.com/ERGO-Code/HiGHS.git
+git clone --depth 1 https://github.com/ERGO-Code/HiGHS.git
 cd ~/HiGHS
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX="$PREFIX"
 cmake --build build -j2
@@ -71,7 +70,7 @@ Then build prima.cpp on all phones. On the GT Neo6 coordinator, enable HiGHS; on
 
 ```sh
 cd ~
-git clone https://github.com/OpenCPIL/prima.cpp.git
+git clone --depth 1 https://github.com/OpenCPIL/prima.cpp.git
 cd ~/prima.cpp
 ```
 
