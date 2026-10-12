@@ -67,14 +67,14 @@ class AdaptiveReplanGate(
             )
         }
 
-        if (forceSafetyReplan || currentSamples.any(::isUnsafeSample)) {
+        if (forceSafetyReplan || currentSamples.any { isUnsafeSample(it) || it.peakRssBytes > maxProjectedNodeRssBytes }) {
             return ReplanEvaluation(
                 ReplanDisposition.SAFETY_REPLAN_REQUIRED,
                 "Current plan has a safety signal; do not wait for performance cooldown"
             )
         }
 
-        if (proposedSamples.any(::isUnsafeSample)) {
+        if (proposedSamples.any { isUnsafeSample(it) || it.peakRssBytes > maxProjectedNodeRssBytes }) {
             return ReplanEvaluation(
                 ReplanDisposition.REJECT_PROPOSAL,
                 "Candidate measurements contain invalid throughput, excessive RSS, or hot/critical thermal state"
