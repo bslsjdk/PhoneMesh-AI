@@ -39,7 +39,7 @@ This prototype does **not** yet run a language model or split GGUF weights. That
 
 **Provision model data locally, then compute locally across the cluster.** The initial source phone should download a model only once and transfer it over the local peer link, not make the other phone download it again from the internet. The final target is to transfer only verified weight shards assigned to each phone. Until the chosen engine proves that it can load per-node shards, a full local copy on both phones is an acceptable temporary compatibility baseline. Do not stream model weights over the internet for every inference request.
 
-See [the model distribution decision](docs/model-distribution-decision.md) for the trade-offs, shard-support caveats, transfer integrity requirements, and acceptance gates.
+See [the model distribution decision](docs/model-distribution-decision.md) for the trade-offs, shard-support caveats, transfer integrity requirements, and acceptance gates. For a temporary real-device inference route while the APK-native backend is unfinished, see the [two-phone Termux inference test](docs/two-phone-inference-test.md).
 
 ## Build
 
@@ -80,6 +80,7 @@ Use only on devices you control and a trusted local link. The initial benchmark 
 - [ ] Add measured RTT and bidirectional throughput tests.
 - [ ] Add node identity, authentication, and protocol framing.
 - [ ] Implement resumable local model/shard transfer with checksum verification.
+- [ ] Run the documented prima.cpp Termux path on both real phones and record failures/metrics.
 - [ ] Implement a remote matrix-operation test.
 - [ ] Implement model-layer placement and distributed forward pass.
 - [ ] Benchmark a quantized 3B model, then evaluate a 9B model only if each node stays under the 4 GiB runtime-RAM limit.
