@@ -39,7 +39,7 @@ This prototype does **not** yet run a language model or split GGUF weights. That
 
 **Provision model data locally, then compute locally across the cluster.** The initial source phone should download a model only once and transfer it over the local peer link, not make the other phone download it again from the internet. The final target is to transfer only verified weight shards assigned to each phone. Until the chosen engine proves that it can load per-node shards, a full local copy on both phones is an acceptable temporary compatibility baseline. Do not stream model weights over the internet for every inference request.
 
-See [the model distribution decision](docs/model-distribution-decision.md) for the trade-offs, shard-support caveats, transfer integrity requirements, and acceptance gates. For the terminal-first **one → two → three phone** inference path, see the [Termux distributed inference test guide](docs/two-phone-inference-test.md).
+See [the model distribution decision](docs/model-distribution-decision.md) for the trade-offs, shard-support caveats, transfer integrity requirements, and acceptance gates. For the terminal-first **one → two → three phone** inference path, see the [Termux distributed inference test guide](docs/two-phone-inference-test.md). The repository also includes a [Termux launcher with a best-effort 4 GiB RSS watchdog](scripts/termux-run.sh); it launches an already-built prima.cpp binary and does not build the engine for you.
 
 ## Build
 
