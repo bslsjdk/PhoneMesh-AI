@@ -159,3 +159,41 @@ Reject any run that exceeds 4 GiB runtime memory on any phone. Compare one-phone
 ## Current project boundary
 
 This is a **terminal test procedure**, not a claim that the test has passed on the target devices. The APK still does not bundle or launch prima.cpp. The first goal is a reproducible successful one-phone model load, then two-node inference, then three-node inference. Final PhoneMesh work still needs an integrated engine, authenticated peers, resumable chunked local model/shard transfer, and measured proof of the 4 GiB per-node limit. Never split a GGUF file at arbitrary byte offsets.
+
+
+## Optional: use the repository launcher
+
+After cloning PhoneMesh-AI on each phone, the helper can launch the smoke test or a distributed rank and watch that process's RSS:
+
+```sh
+cd ~
+git clone https://github.com/bslsjdk/PhoneMesh-AI.git
+```
+
+Single-phone smoke test:
+```sh
+bash ~/PhoneMesh-AI/scripts/termux-run.sh smoke ~/models/model.gguf
+```
+
+For two phones, run on X50 (rank 1), then GT Neo6 (rank 0):
+```sh
+# X50
+bash ~/PhoneMesh-AI/scripts/termux-run.sh node ~/models/model.gguf 2 1 GT_IP GT_IP
+
+# GT Neo6 (replace IPs and optionally the prompt)
+bash ~/PhoneMesh-AI/scripts/termux-run.sh node ~/models/model.gguf 2 0 GT_IP X50_IP "Explain briefly how two phones can cooperate on a computation."
+```
+
+For three phones, start rank 2 on phone 3, rank 1 on X50, and rank 0 on GT Neo6:
+```sh
+# Phone 3
+bash ~/PhoneMesh-AI/scripts/termux-run.sh node ~/models/model.gguf 3 2 GT_IP GT_IP
+
+# X50
+bash ~/PhoneMesh-AI/scripts/termux-run.sh node ~/models/model.gguf 3 1 GT_IP PHONE3_IP
+
+# GT Neo6
+bash ~/PhoneMesh-AI/scripts/termux-run.sh node ~/models/model.gguf 3 0 GT_IP X50_IP "Explain briefly how three phones can cooperate on a computation."
+```
+
+The launcher checks the process's reported RSS approximately once per second and stops it if it observes RSS above 4 GiB. This is a best-effort guard, not a hard real-time guarantee or a replacement for checking Android's system memory and thermal status. It only launches an already-built engine; it does not compile prima.cpp or prove the model is compatible.
