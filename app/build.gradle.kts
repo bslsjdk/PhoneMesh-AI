@@ -1,9 +1,6 @@
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
-    dependencies {
-        testImplementation("junit:junit:4.13.2")
-    }
 }
 
 android {
@@ -36,4 +33,8 @@ android {
             isMinifyEnabled = false
         }
     }
+}
+
+dependencies {
+    testImplementation("junit:junit:4.13.2")
 }
