@@ -75,7 +75,14 @@ Do not accept a configuration that exceeds 4 GiB RSS on any process. Reduce cont
 
 ## 5. Optional scripts in this repository
 
-The helper scripts in `scripts/` only launch the already-built binaries; they do not build llama.cpp, download models, or enforce a hard OS memory limit. See each script's usage text.
+From the PhoneMesh-AI checkout, while the current directory is the llama.cpp checkout:
+
+```bash
+bash ../PhoneMesh-AI/scripts/rpc-worker.sh 192.168.1.23 50052 ./build/bin/ggml-rpc-server
+bash ../PhoneMesh-AI/scripts/rpc-driver.sh "$HOME/models/Ornith-1.5-9B.gguf" 192.168.1.23:50052,192.168.1.24:50052
+```
+
+Replace the example paths and private IP addresses with the actual values. The helper scripts only launch already-built binaries; they do not build llama.cpp, download models, or enforce a hard OS memory limit. See each script's usage text.
 
 ## Troubleshooting
 
