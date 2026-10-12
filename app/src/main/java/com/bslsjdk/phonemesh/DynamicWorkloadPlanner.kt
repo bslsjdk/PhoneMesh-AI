@@ -1,6 +1,5 @@
 package com.bslsjdk.phonemesh
 
-import kotlin.math.ceil
 import kotlin.math.max
 import kotlin.math.min
 
@@ -95,14 +94,15 @@ object DynamicWorkloadPlanner {
                 return@mapNotNull null
             }
             val perLayerBytes = node.estimatedBytesPerLayer
-            val memCap = min(PLANNING_BUDGET_BYTES, node.availableRamBytes + peak)
-            val maxLayersByMemory = ((memCap - node.fixedRuntimeBytes - backend.extraMemoryBytes) / perLayerBytes)
+            val maxLayersByMemory = ((PLANNING_BUDGET_BYTES - node.fixedRuntimeBytes - backend.extraMemoryBytes) / perLayerBytes)
                 .coerceAtLeast(0L).coerceAtMost(totalLayers.toLong()).toInt()
-            if (maxLayersByMemory == 0) {
+            val maxLayersByBackend = ceil(totalLayers * backend.supportedLayerFraction).toInt()
+            val maxSafeLayers = min(maxLayersByMemory, maxLayersByBackend)
+            if (maxSafeLayers == 0) {
                 warnings += "${node.nodeId}: projected memory leaves no safe layer capacity"
                 return@mapNotNull null
             }
-            Candidate(node, backend, maxLayersByMemory)
+            Candidate(node, backend, maxSafeLayers)
         }
 
         if (eligible.isEmpty()) {
@@ -133,16 +133,10 @@ object DynamicWorkloadPlanner {
             }
             val c = candidates[nodeIndex]
             val remainingNodes = candidates.size - nodeIndex - 1
-            val maxCount = min(c.maxLayers, totalLayers - nextLayer - remainingNodes)
-            if (maxCount <= 0) {
-                search(nodeIndex + 1, nextLayer, current, accumulated)
-                return
-            }
-            // This node may be unused, which is important when network overhead
-            // makes a phone harmful. Only allow skipping before any layer is placed.
-            if (nextLayer == 0 && remainingNodes > 0) {
-                search(nodeIndex + 1, nextLayer, current, accumulated)
-            }
+            // Try excluding this node; a slower or costly peer must not be forced in.
+            search(nodeIndex + 1, nextLayer, current, accumulated)
+            val maxCount = min(c.maxLayers, totalLayers - nextLayer)
+            if (maxCount <= 0) return
             for (count in 1..maxCount) {
                 val compute = count * 1000.0 / (c.backend.measuredLayersPerSecond!!)
                 val isBoundary = nextLayer + count < totalLayers
