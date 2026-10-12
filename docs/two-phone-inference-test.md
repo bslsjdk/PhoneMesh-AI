@@ -4,6 +4,19 @@ This guide is the terminal-first path for testing real inference. The PhoneMesh 
 
 ## Hard safety gates
 
+## Low-bandwidth plan (200 KB/s internet)
+
+The internet link is the scarce resource; local phone-to-phone Wi-Fi is a separate link. Do **not** repeat source downloads on every phone.
+
+- Install Termux once on each device. Avoid running `pkg upgrade` unless a package actually requires it; it can pull many unrelated updates. Install only the packages the build reports missing.
+- Clone source on **one phone only**, using shallow clones to avoid downloading full Git history.
+- Transfer the source tree or built files to other phones over a local link. All phones still need compatible runtime libraries, and a binary built on one phone is not guaranteed to run on another until tested.
+- Download the model once. Copy it locally to each node for the upstream prima.cpp baseline; compare SHA-256. Do not re-download it from the internet.
+- Do not download a second model just for a smoke test. First test the existing model with a short prompt; if it is unsupported or exceeds the memory ceiling, stop before downloading anything else.
+
+At 200 KB/s, 100 MB takes at least about 8 minutes 20 seconds and 1 GB takes at least about 1 hour 25 minutes, before overhead or interruptions. Exact source/dependency size varies, so check `du -sh` and download progress instead of trusting an estimate.
+
+
 - Keep the measured runtime/process peak on **each phone at or below 4 GiB**. Stop immediately if the process is killed, Android reports memory pressure, or the phone becomes abnormally hot.
 - Start with context 256–512 and 8–32 generated tokens. Test while cool, charging only if the phone stays cool, and keep screens awake.
 - Use only a trusted private local link and devices you have permission to use. Do not expose the engine's experimental network ports to public Wi-Fi or the internet.
@@ -197,3 +210,8 @@ bash ~/PhoneMesh-AI/scripts/termux-run.sh node ~/models/model.gguf 3 0 GT_IP X50
 ```
 
 The launcher checks the process's reported RSS approximately once per second and stops it if it observes RSS above 4 GiB. This is a best-effort guard, not a hard real-time guarantee or a replacement for checking Android's system memory and thermal status. It only launches an already-built engine; it does not compile prima.cpp or prove the model is compatible.
+
+
+## Save internet bandwidth when adding phones
+
+Do not run `git clone` separately on phone 2 and phone 3. Build and validate the engine on the GT Neo6 first. Then copy the tested source/build directory or tested worker executable to the other phones over the local link. Because Termux libraries and ABI details can differ, verify the copied executable with `./llama-cli --help` on each phone before trying a cluster. If a required shared library is missing, install only that dependency on the affected phone. Keep a record of the exact Git commit and binary hash so all nodes use matching builds.
