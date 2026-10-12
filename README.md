@@ -35,6 +35,12 @@ The initial Android app is a transport prototype:
 
 This prototype does **not** yet run a language model or split GGUF weights. That is a separate milestone.
 
+## Model distribution decision
+
+**Provision model data locally, then compute locally across the cluster.** The initial source phone should download a model only once and transfer it over the local peer link, not make the other phone download it again from the internet. The final target is to transfer only verified weight shards assigned to each phone. Until the chosen engine proves that it can load per-node shards, a full local copy on both phones is an acceptable temporary compatibility baseline. Do not stream model weights over the internet for every inference request.
+
+See [the model distribution decision](docs/model-distribution-decision.md) for the trade-offs, shard-support caveats, transfer integrity requirements, and acceptance gates.
+
 ## Build
 
 Open the project in Android Studio with JDK 17 and Android SDK 35, or use the included GitHub Actions workflow to compile it. The project intentionally starts without a checked-in Gradle wrapper; CI installs a compatible Gradle version.
@@ -73,6 +79,7 @@ Use only on devices you control and a trusted local link. The initial benchmark 
 - [ ] Validate build and run on real devices.
 - [ ] Add measured RTT and bidirectional throughput tests.
 - [ ] Add node identity, authentication, and protocol framing.
+- [ ] Implement resumable local model/shard transfer with checksum verification.
 - [ ] Implement a remote matrix-operation test.
 - [ ] Implement model-layer placement and distributed forward pass.
 - [ ] Benchmark a quantized 3B model, then evaluate a 9B model only if each node stays under the 4 GiB runtime-RAM limit.
