@@ -39,6 +39,10 @@ This prototype does **not** yet run a language model or split GGUF weights. That
 
 Open the project in Android Studio with JDK 17 and Android SDK 35, or use the included GitHub Actions workflow to compile it. The project intentionally starts without a checked-in Gradle wrapper; CI installs a compatible Gradle version.
 
+## Existing distributed-inference engines
+
+Before implementing model sharding from scratch, see [the candidate review](docs/distributed-engine-review.md). The current first candidate to validate is prima.cpp via Termux; this is a source-based recommendation, not yet a successful run on the target phones.
+
 ## Test plan
 
 1. Install the debug APK on both phones.
@@ -59,6 +63,7 @@ Use only on devices you control and a trusted local link. The initial benchmark 
 - [x] Establish transport choice and constraints.
 - [x] Android Wi-Fi Direct discovery/connection prototype.
 - [x] TCP bulk-transfer benchmark prototype.
+- [x] Compile debug APK in GitHub Actions (Android build workflow succeeded; artifact is available in the workflow run).
 - [ ] Validate build and run on real devices.
 - [ ] Add measured RTT and bidirectional throughput tests.
 - [ ] Add node identity, authentication, and protocol framing.
