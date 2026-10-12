@@ -26,7 +26,7 @@ cmake -S . -B build -DGGML_RPC=ON -DCMAKE_BUILD_TYPE=Release -DGGML_OPENMP=OFF
 cmake --build build --config Release -j1
 ```
 
-Builds can take a while on phones. Use `-j1) to reduce build memory pressure. Confirm the expected binaries exist:
+Builds can take a while on phones. Use `-j1` to reduce build memory pressure. Confirm the expected binaries exist:
 
 ```bash
 ls -lh build/bin/ggml-rpc-server build/bin/llama-cli
