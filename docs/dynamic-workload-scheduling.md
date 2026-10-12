@@ -4,7 +4,9 @@
 
 Never hard-code a permanent percentage such as 60% on one phone and 40% on another. The coordinator must re-estimate each node from measured performance and choose among: increase its share, reduce its share, keep its share, or temporarily exclude it.
 
-The Kotlin proposal helper is `DynamicWorkloadPlanner.kt`. It is a conservative planner scaffold, **not yet wired to a working native inference engine**. It accepts measured node/backend profiles and proposes contiguous layer ranges. The selected engine must support those ranges before they can be launched.
+The Kotlin proposal helper is `DynamicWorkloadPlanner.kt`. It accepts measured node/backend profiles and proposes contiguous layer ranges. `AdaptiveReplanGate.kt` is a separate policy gate that requires enough end-to-end samples, a configurable minimum gain, memory headroom, and a cooldown before accepting a normal re-plan; safety signals bypass the cooldown. Unit tests cover these pure Kotlin policies.
+
+**Neither class is wired to a working native inference engine yet.** The caller must supply real measurements, run canary benchmarks, and verify that the selected engine supports the proposed layer ranges before they can be launched. The gate does not collect telemetry, move layers, or launch a safety fallback itself.
 
 ## What the scheduler measures
 
@@ -33,7 +35,7 @@ A single autoregressive token usually traverses transformer layers sequentially.
 
 ## Feedback loop
 
-Use an event-driven controller, not constant frantic rebalancing:
+The policy gate is implemented as a testable building block, but the live event-driven controller still needs to be connected to real telemetry and engine lifecycle callbacks. Use event-driven control, not constant frantic rebalancing:
 
 - Collect short rolling windows of latency, tokens/s, RTT, memory, and thermal state.
 - Smooth noisy samples with an exponential moving average; keep raw samples for p50/p95 reporting.
