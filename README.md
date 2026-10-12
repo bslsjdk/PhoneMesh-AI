@@ -39,6 +39,12 @@ This prototype does **not** yet run a language model or split GGUF weights. That
 
 Open the project in Android Studio with JDK 17 and Android SDK 35, or use the included GitHub Actions workflow to compile it. The project intentionally starts without a checked-in Gradle wrapper; CI installs a compatible Gradle version.
 
+## Hybrid integration plan
+
+The project now includes a typed node telemetry model and a replaceable inference-backend contract. See [the integration architecture](docs/engine-integration-architecture.md) for the plan combining prima.cpp's heterogeneous layer scheduling, exo's topology-aware placement concepts, and Silica Cluster's Android service/telemetry ideas without copying AGPL-licensed source.
+
+The Kotlin scaffold is not yet connected to a native inference engine. CI compilation and real-device tests must pass before claiming it works.
+
 ## Existing distributed-inference engines
 
 Before implementing model sharding from scratch, see [the candidate review](docs/distributed-engine-review.md). The current first candidate to validate is prima.cpp via Termux; this is a source-based recommendation, not yet a successful run on the target phones.
