@@ -39,7 +39,7 @@ This prototype does **not** yet run a language model or split GGUF weights. That
 
 **Provision model data locally, then compute locally across the cluster.** The initial source phone should download a model only once and transfer it over the local peer link, not make the other phone download it again from the internet. The final target is to transfer only verified weight shards assigned to each phone. Until the chosen engine proves that it can load per-node shards, a full local copy on both phones is an acceptable temporary compatibility baseline. Do not stream model weights over the internet for every inference request.
 
-See [the model distribution decision](docs/model-distribution-decision.md) for the trade-offs, shard-support caveats, transfer integrity requirements, and acceptance gates. For the terminal-first **one → two → three phone** inference path, see the [Termux distributed inference test guide](docs/two-phone-inference-test.md). The repository also includes a [Termux launcher with a best-effort 4 GiB RSS watchdog](scripts/termux-run.sh); it launches an already-built prima.cpp binary and does not build the engine for you. The Termux guide is optimized for a slow 200 KB/s internet link: shallow source clones, no unnecessary full package upgrade, and local reuse of the tested source/build instead of recloning on every phone.
+See [the model distribution decision](docs/model-distribution-decision.md) for the trade-offs, shard-support caveats, transfer integrity requirements, and acceptance gates. For the terminal-first **one → two → three phone** inference path, see the [Termux distributed inference test guide](docs/two-phone-inference-test.md). The repository also includes a [Termux launcher with a best-effort 4 GiB RSS watchdog](scripts/termux-run.sh); it launches an already-built inference binary and does not build the engine for you. For the first direct multi-phone experiment, use the [upstream llama.cpp RPC Android guide](docs/llama-cpp-rpc-android.md) with the [worker launcher](scripts/rpc-worker.sh) and [driver smoke-test launcher](scripts/rpc-driver.sh). The guide is optimized for a slow 200 KB/s internet link: shallow source clones, no unnecessary full package upgrade, and local reuse of source/build files where practical.
 
 ## Build
 
@@ -53,7 +53,7 @@ The Kotlin scaffold is not yet connected to a native inference engine. CI compil
 
 ## Existing distributed-inference engines
 
-Before implementing model sharding from scratch, see [the candidate review](docs/distributed-engine-review.md). The first candidate to validate is prima.cpp via Termux; this is a source-based recommendation, not yet a successful run on the target phones.
+Before implementing model sharding from scratch, see [the candidate review](docs/distributed-engine-review.md). The first candidate to validate is now upstream llama.cpp RPC via Termux because it has a documented `--rpc` path and a worker server. This is a source-based route, not yet a successful run on the target phones. The older prima.cpp guide remains available for comparison.
 
 ## APK transport test
 
