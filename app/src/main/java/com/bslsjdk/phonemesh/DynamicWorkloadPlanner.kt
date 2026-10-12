@@ -55,6 +55,8 @@ data class AdaptivePlan(
 object DynamicWorkloadPlanner {
     // Leave 512 MiB headroom below the hard 4 GiB acceptance ceiling.
     private const val PLANNING_BUDGET_BYTES = RuntimeBudget.MAX_BYTES - 512L * 1024L * 1024L
+    // Keep half a GiB of currently free system RAM for Android and other apps.
+    private const val AVAILABLE_RAM_HEADROOM_BYTES = 512L * 1024L * 1024L
 
     fun propose(
         totalLayers: Int,
@@ -64,6 +66,9 @@ object DynamicWorkloadPlanner {
     ): AdaptivePlan {
         require(totalLayers > 0) { "totalLayers must be positive" }
         require(activationBytesAtBoundary >= 0L) { "activationBytesAtBoundary must not be negative" }
+        require(maxNetworkRttMillis.isFinite() && maxNetworkRttMillis >= 0.0) {
+            "maxNetworkRttMillis must be finite and non-negative"
+        }
 
         val warnings = mutableListOf<String>()
         val eligible = nodes.mapNotNull { node ->
@@ -88,15 +93,21 @@ object DynamicWorkloadPlanner {
             val backend = node.backends
                 .filter { it.numericalValidationPassed && it.supportedLayerFraction > 0.0 &&
                     it.supportedLayerFraction <= 1.0 && it.measuredLayersPerSecond != null &&
-                    it.measuredLayersPerSecond > 0.0 && it.extraMemoryBytes >= 0L }
+                    it.measuredLayersPerSecond > 0.0 && it.extraMemoryBytes >= 0L && it.initializationMillis >= 0L }
                 .maxByOrNull { it.measuredLayersPerSecond!! * it.supportedLayerFraction }
             if (backend == null) {
                 warnings += "${node.nodeId}: no measured, numerically validated backend; excluded"
                 return@mapNotNull null
             }
             val perLayerBytes = node.estimatedBytesPerLayer
-            val maxLayersByMemory = ((PLANNING_BUDGET_BYTES - node.fixedRuntimeBytes - backend.extraMemoryBytes) / perLayerBytes)
-                .coerceAtLeast(0L).coerceAtMost(totalLayers.toLong()).toInt()
+            val maxLayersByProcessBudget =
+                ((PLANNING_BUDGET_BYTES - node.fixedRuntimeBytes - backend.extraMemoryBytes) / perLayerBytes)
+                    .coerceAtLeast(0L)
+            val maxLayersByAvailableRam =
+                ((node.availableRamBytes - AVAILABLE_RAM_HEADROOM_BYTES - backend.extraMemoryBytes) / perLayerBytes)
+                    .coerceAtLeast(0L)
+            val maxLayersByMemory = min(maxLayersByProcessBudget, maxLayersByAvailableRam)
+                .coerceAtMost(totalLayers.toLong()).toInt()
             val maxLayersByBackend = ceil(totalLayers * backend.supportedLayerFraction).toInt()
             val maxSafeLayers = min(maxLayersByMemory, maxLayersByBackend)
             if (maxSafeLayers == 0) {
@@ -142,9 +153,10 @@ object DynamicWorkloadPlanner {
                 val compute = count * 1000.0 / (c.backend.measuredLayersPerSecond!!)
                 val isBoundary = nextLayer + count < totalLayers
                 val networkCost = if (isBoundary) {
-                    val rtt = c.node.measuredNetworkRttMillis ?: maxNetworkRttMillis
-                    val bps = c.node.measuredNetworkBytesPerSecond ?: 1.0
-                    if (bps <= 0.0) Double.POSITIVE_INFINITY
+                    val rtt = c.node.measuredNetworkRttMillis
+                        ?.takeIf { it.isFinite() && it >= 0.0 } ?: maxNetworkRttMillis
+                    val bps = c.node.measuredNetworkBytesPerSecond
+                    if (bps == null || !bps.isFinite() || bps <= 0.0) Double.POSITIVE_INFINITY
                     else rtt + activationBytesAtBoundary * 1000.0 / bps
                 } else 0.0
                 val mem = c.node.fixedRuntimeBytes + c.backend.extraMemoryBytes +
@@ -159,7 +171,7 @@ object DynamicWorkloadPlanner {
                     estimatedMemoryBytes = mem
                 )
                 current += assignment
-                search(nodeIndex + 1, nextLayer + count, current, accumulated + compute + networkCost)
+                search(nodeIndex + 1, nextLayer + count, current, accumulated + compute + networkCost + c.backend.initializationMillis.toDouble())
                 current.removeAt(current.lastIndex)
             }
         }
