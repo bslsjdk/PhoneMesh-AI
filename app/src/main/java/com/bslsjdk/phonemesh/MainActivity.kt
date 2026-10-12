@@ -122,7 +122,7 @@ class MainActivity : Activity() {
             addAction(WifiP2pManager.WIFI_P2P_PEERS_CHANGED_ACTION)
             addAction(WifiP2pManager.WIFI_P2P_CONNECTION_CHANGED_ACTION)
         }
-        if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
+        if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, filter, Context.RECEIVER_EXPORTED)
         else {
             @Suppress("DEPRECATION")
             registerReceiver(receiver, filter)
@@ -221,12 +221,13 @@ class MainActivity : Activity() {
         if (serverRunning) return
         serverRunning = true
         updateButtons()
-        appendStatus("Listening on TCP port " + PORT + ". Tap Send benchmark on the client phone.")
+        appendStatus("Starting benchmark server on TCP port " + PORT + "...")
         thread(name = "PhoneMesh-Benchmark-Server") {
             try {
                 ServerSocket().use { server ->
                     server.reuseAddress = true
                     server.bind(InetSocketAddress(PORT))
+                    appendStatus("Benchmark server is listening on TCP port " + PORT + ". Tap Send benchmark on the client phone.")
                     server.soTimeout = 120_000
                     server.accept().use { socket ->
                         socket.soTimeout = 120_000
