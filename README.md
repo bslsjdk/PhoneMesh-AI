@@ -49,7 +49,7 @@ Open the project in Android Studio with JDK 17 and Android SDK 35, or use the in
 
 The project includes a typed node telemetry model and a replaceable inference-backend contract. See [the integration architecture](docs/engine-integration-architecture.md) for the plan combining prima.cpp's heterogeneous layer scheduling, exo's topology-aware placement concepts, and Silica Cluster's Android service/telemetry ideas without copying AGPL-licensed source.
 
-The Kotlin scaffold is not yet connected to a native inference engine. CI compilation and real-device tests must pass before claiming it works.
+The Kotlin scaffold is not yet connected to a native inference engine. CI compilation and real-device tests must pass before claiming it works. For the CPU-first plan with optional vendor NPU acceleration, see [the hybrid CPU/NPU plan](docs/hybrid-cpu-npu-plan.md); the current prima.cpp route is not verified to access Qualcomm mobile NPUs.
 
 ## Existing distributed-inference engines
 
