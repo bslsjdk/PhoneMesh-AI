@@ -34,7 +34,7 @@ Adjust the source filename to the exact file you have. If the wildcard matches m
 
 ## 2. Build prima.cpp on each phone
 
-This is a native build and may take a while. Run on both phones:
+This is a native build and may take a while. Do not run a long compile if a phone is already hot or low on battery. Keep the build parallelism low. Run on both phones:
 
 ```sh
 cd ~
